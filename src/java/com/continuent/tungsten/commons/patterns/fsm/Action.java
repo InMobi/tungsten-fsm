@@ -30,11 +30,13 @@ package com.continuent.tungsten.commons.patterns.fsm;
  * <li>TRANSITION_ACTION - Action taken on traversing a transition</li>
  * <li>ENTRY_ACTION - Action taken on entering a state</li>
  * </ul>
- * 
+ *
+ * @param <ET> The entity type of the FSM that thia action is associated with
+ *
  * @author <a href="mailto:robert.hodges@continuent.com">Robert Hodges</a>
  * @version 1.0
  */
-public interface Action
+public interface Action<ET extends Entity>
 {
     /** An action executed on leaving a state. */
     public static final int EXIT_ACTION       = 1;
@@ -51,15 +53,18 @@ public interface Action
      * to roll back.  Unhandled exceptions are passed back up the stack; state
      * machine behavior in this case is undefined.  
      * 
+     *
      * @param message Event that triggered the transition
      * @param entity Entity whose state is changing
      * @param transition Transition we are executing
      * @param actionType Type of action
      * @throws TransitionRollbackException Thrown if the state transition has failed
      *         and may be safely rolled back. 
-     * @throws TransitionFailedException Thrown if the state transition failed and 
+     * @throws TransitionFailureException Thrown if the state transition failed and
      *         state machine should move to default error state. 
      */
-    public void doAction(Event message, Entity entity, Transition transition, 
-            int actionType) throws TransitionRollbackException, TransitionFailureException;
+    public void doAction(Event<?> message, ET entity,
+                                     Transition<ET, ?> transition,
+                                     int actionType)
+            throws TransitionRollbackException, TransitionFailureException;
 }

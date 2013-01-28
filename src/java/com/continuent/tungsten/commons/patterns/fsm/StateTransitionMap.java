@@ -26,15 +26,18 @@ import java.util.HashMap;
 
 /**
  * Manages the map of states and transitions composing a finite state machine.
+ *
+ * @param <ET> The entity type of the FSM whose transition map this object
+ *            defines
  * 
  * @author <a href="mailto:robert.hodges@continuent.com">Robert Hodges</a>
  * @version 1.0
  */
-public class StateTransitionMap
+public class StateTransitionMap<ET extends Entity>
 {
-    private State                             startState;
-    private State                             errorState;
-    private HashMap<State, TransitionMatcher> transitionMap = new HashMap<State, TransitionMatcher>();
+    private State<ET>                             startState;
+    private State<ET>                             errorState;
+    private HashMap<State<ET>, TransitionMatcher<ET>> transitionMap = new HashMap<State<ET>, TransitionMatcher<ET>>();
     private boolean                           initialized;
 
     /** Creates a new instance. */
@@ -45,7 +48,7 @@ public class StateTransitionMap
     /**
      * Returns the starting state of this state machine.
      */
-    public State getStartState()
+    public State<ET> getStartState()
     {
         return startState;
     }
@@ -59,7 +62,7 @@ public class StateTransitionMap
      * @throws FiniteStateException Thrown if the state cannot be found in the
      *             map
      */
-    public void setErrorState(State state) throws FiniteStateException
+    public void setErrorState(State<ET> state) throws FiniteStateException
     {
         if (transitionMap.get(state) == null)
             throw new FiniteStateException(
@@ -72,7 +75,7 @@ public class StateTransitionMap
     /**
      * Returns the error state or null if no error state has been designated.
      */
-    public State getErrorState()
+    public State<ET> getErrorState()
     {
         return errorState;
     }
@@ -84,7 +87,7 @@ public class StateTransitionMap
      * @return The state that was just added
      * @throws FiniteStateException
      */
-    public State addState(State state) throws FiniteStateException
+    public State<ET> addState(State<ET> state) throws FiniteStateException
     {
         // Check for error conditions.
         if (transitionMap.get(state) != null)
@@ -99,7 +102,7 @@ public class StateTransitionMap
         }
 
         // Update the map.
-        transitionMap.put(state, new TransitionMatcher());
+        transitionMap.put(state, new TransitionMatcher<ET>());
         if (state.isStart())
         {
             this.startState = state;
@@ -118,10 +121,10 @@ public class StateTransitionMap
      * @param entryAction An action to perform on entering the state
      * @param exitAction An action to perform on leaving the state
      */
-    public State addState(String name, StateType type, State parent,
-            Action entryAction, Action exitAction) throws FiniteStateException
+    public State<ET> addState(String name, StateType type, State<ET> parent,
+            Action<ET> entryAction, Action<ET> exitAction) throws FiniteStateException
     {
-        return addState(new State(name, type, parent, entryAction, exitAction));
+        return addState(new State<ET>(name, type, parent, entryAction, exitAction));
     }
 
     /**
@@ -132,10 +135,10 @@ public class StateTransitionMap
      * @param type A state type as defined by {@link StateType}
      * @param parent A parent state that contains this state if any
      */
-    public State addState(String name, StateType type, State parent)
+    public State<ET> addState(String name, StateType type, State<ET> parent)
             throws FiniteStateException
     {
-        return addState(new State(name, type, parent, null, null));
+        return addState(new State<ET>(name, type, parent, null, null));
     }
 
     /**
@@ -144,9 +147,9 @@ public class StateTransitionMap
      * 
      * @param name The fully qualified state name
      */
-    public State getStateByName(String name)
+    public State<ET> getStateByName(String name)
     {
-        for (State state: this.transitionMap.keySet())
+        for (State<ET> state: this.transitionMap.keySet())
         {
             if (state.getName().equals(name))
                 return state;
@@ -160,11 +163,11 @@ public class StateTransitionMap
      * @param transition A transition between two states containin a guard
      * @throws FiniteStateException Thrown if the transition is invalid
      */
-    public Transition addTransition(Transition transition)
+    public <T> Transition<ET, T> addTransition(Transition<ET, T> transition)
             throws FiniteStateException
     {
         // Check for errors.
-        TransitionMatcher matcher = transitionMap.get(transition.getInput());
+        TransitionMatcher<ET> matcher = transitionMap.get(transition.getInput());
         if (matcher == null)
             throw new FiniteStateException(
                     "Cannot find input state for transition: "
@@ -187,10 +190,10 @@ public class StateTransitionMap
      * @param action An action to take when the transition is triggered
      * @param output Output state
      */
-    public Transition addTransition(String name, Guard guard, State input,
-            Action action, State output) throws FiniteStateException
+    public <T> Transition<ET, T> addTransition(String name, Guard<ET, T> guard, State<ET> input,
+            Action<ET> action, State<ET> output) throws FiniteStateException
     {
-        return addTransition(new Transition(name, guard, input, action, output));
+        return addTransition(new Transition<ET, T>(name, guard, input, action, output));
     }
 
     /**
@@ -202,10 +205,10 @@ public class StateTransitionMap
      * @param action An action to take when the transition is triggered
      * @param output Output state
      */
-    public Transition addTransition(String name, String regex, State input,
-            Action action, State output) throws FiniteStateException
+    public Transition<ET, String> addTransition(String name, String regex, State<ET> input,
+            Action<ET> action, State<ET> output) throws FiniteStateException
     {
-        return addTransition(new Transition(name, new RegexGuard(regex), input,
+        return addTransition(new Transition<ET, String>(name, new RegexGuard<ET>(regex), input,
                 action, output));
     }
 
@@ -218,12 +221,12 @@ public class StateTransitionMap
      * @param action An action to take when the transition is triggered
      * @param output Output state
      */
-    public Transition addTransition(String name, Class<?> eventType,
-            State input, Action action, State output)
+    public Transition<ET, Object> addTransition(String name, Class<? extends Event<?>> eventType,
+            State<ET> input, Action<ET> action, State<ET> output)
             throws FiniteStateException
     {
-        return addTransition(new Transition(name,
-                new EventTypeGuard(eventType), input, action, output));
+        return addTransition(new Transition<ET, Object>(name,
+                new EventTypeGuard<ET>(eventType), input, action, output));
     }
 
     /**
@@ -258,7 +261,7 @@ public class StateTransitionMap
         // Ensure that every non-starting state other than the error state has
         // at least one transition either directly into it or to a substate.
         HashMap<State, Transition> inBoundTransitions = new HashMap<State, Transition>();
-        for (TransitionMatcher matcher : transitionMap.values())
+        for (TransitionMatcher<ET> matcher : transitionMap.values())
         {
             for (Transition transition : matcher.getTransitions())
             {
@@ -291,7 +294,7 @@ public class StateTransitionMap
         // Outbound #1: Ensure that every non-ending state has at least one
         // transition out of it or out of a substate.
         HashMap<State, Transition> outBoundTransitions = new HashMap<State, Transition>();
-        for (TransitionMatcher matcher : transitionMap.values())
+        for (TransitionMatcher<ET> matcher : transitionMap.values())
         {
             for (Transition transition : matcher.getTransitions())
             {
@@ -360,22 +363,22 @@ public class StateTransitionMap
      *             the map has not been properly initialized by a call to
      *             {@link #build()}
      */
-    public Transition nextTransition(State inputState, Event event,
-            Entity entity) throws FiniteStateException
+    public Transition<ET, ?> nextTransition(State<ET> inputState, Event<?> event,
+            ET entity) throws FiniteStateException
     {
         if (!initialized)
             throw new FiniteStateException(
                     "State map not yet initialized through call to build() method");
 
-        State matchingState = inputState;
+        State<ET> matchingState = inputState;
         boolean noMatcher = true;
-        Transition transition = null;
+        Transition<ET, ?> transition = null;
 
         // Walk the state hierarchy looking for a transition that accepts this
         // event.
         while (matchingState != null)
         {
-            TransitionMatcher matcher = transitionMap.get(matchingState);
+            TransitionMatcher<ET> matcher = transitionMap.get(matchingState);
             if (matcher != null)
             {
                 noMatcher = false;
@@ -415,8 +418,8 @@ public class StateTransitionMap
      *             the map has not been properly initialized by a call to
      *             {@link #build()}
      */
-    public Transition nextChainedTransition(State inputState, Event event,
-            Entity entity) throws FiniteStateException
+    public Transition<ET, ?> nextChainedTransition(State<ET> inputState, Event<?> event,
+            ET entity) throws FiniteStateException
     {
         if (!initialized)
             throw new FiniteStateException(
@@ -424,13 +427,13 @@ public class StateTransitionMap
 
         State matchingState = inputState;
         boolean noMatcher = true;
-        Transition transition = null;
+        Transition<ET, ?> transition = null;
 
         // Walk the state hierarchy looking for a transition that accepts this
         // event.
         while (matchingState != null)
         {
-            TransitionMatcher matcher = transitionMap.get(matchingState);
+            TransitionMatcher<ET> matcher = transitionMap.get(matchingState);
             if (matcher != null)
             {
                 noMatcher = false;

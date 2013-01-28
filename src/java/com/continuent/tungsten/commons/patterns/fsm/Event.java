@@ -24,25 +24,27 @@ package com.continuent.tungsten.commons.patterns.fsm;
 
 /**
  * Denotes an event that may be delivered to a finite state machine.
- * 
+ *
+ * @param <T> type of the satellite data associated with this event.
+ *
  * @author <a href="mailto:robert.hodges@continuent.com">Robert Hodges</a>
  * @version 1.0
  */
-public class Event
+public class Event<T>
 {
-    private final Object data;
+    private final T data;
 
     /**
      * Creates a new <code>Event</code> object
      * 
      * @param data Event data or null
      */
-    public Event(Object data)
+    public Event(T data)
     {
         this.data = data;
     }
 
-    public Object getData()
+    public T getData()
     {
         return data;
     }

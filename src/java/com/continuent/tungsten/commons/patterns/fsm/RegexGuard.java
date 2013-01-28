@@ -32,7 +32,7 @@ import java.util.regex.Pattern;
  * @author <a href="mailto:robert.hodges@continuent.com">Robert Hodges</a>
  * @version 1.0
  */
-public class RegexGuard implements Guard
+public class RegexGuard<ET extends Entity> implements Guard<ET, String>
 {
     Pattern pattern;
 
@@ -53,12 +53,13 @@ public class RegexGuard implements Guard
      *      com.continuent.tungsten.commons.patterns.fsm.Entity,
      *      com.continuent.tungsten.commons.patterns.fsm.State)
      */
-    public boolean accept(Event message, Entity entity, State state)
+    @Override
+    public boolean accept(Event<String> message, ET entity, State<?> state)
     {
-        Object o = message.getData();
-        if (o != null && o instanceof String)
+        String o = message.getData();
+        if (o != null)
         {
-            Matcher m = pattern.matcher((String) o);
+            Matcher m = pattern.matcher(o);
             return m.matches();
         }
         else

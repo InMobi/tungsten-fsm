@@ -25,20 +25,23 @@ package com.continuent.tungsten.commons.patterns.fsm;
 /**
  * Provides an adapter that permits ordinary objects to be handled as entities
  * without implementing the Entity interface directly.
- * 
+ *
+ * @param <T> The type of the object that is being wrapped to comply
+ *           with the entity interface
+ *
  * @author <a href="mailto:robert.hodges@continuent.com">Robert Hodges</a>
  * @version 1.0
  */
-public class EntityAdapter implements Entity
+public class EntityAdapter<T> implements Entity
 {
-    Object entity;
+    T entity;
 
     /**
      * Creates a new instance
      * 
      * @param entity An entity that this adapter should hold
      */
-    public EntityAdapter(Object entity)
+    public EntityAdapter(T entity)
     {
         this.entity = entity;
     }
@@ -46,7 +49,7 @@ public class EntityAdapter implements Entity
     /**
      * Returns the entity stored in this adapter.
      */
-    public Object getEntity()
+    public T getEntity()
     {
         return entity;
     }
@@ -54,7 +57,7 @@ public class EntityAdapter implements Entity
     /**
      * Set the entity instance in the adapter.
      */
-    public void setEntity(Object entity)
+    public void setEntity(T entity)
     {
         this.entity = entity;
     }

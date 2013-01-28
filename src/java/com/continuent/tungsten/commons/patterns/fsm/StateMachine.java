@@ -80,25 +80,28 @@ import org.slf4j.LoggerFactory;
  * of exceptions to signal error conditions both large and small. There is also
  * a default error state that will
  * <p>
- * 
+ *
+ * @param <ET> The entity type for which the state machine is being defined
+ *            All member states in a given FSM must be for the same entity type
+ *
  * @author <a href="mailto:robert.hodges@continuent.com">Robert Hodges</a>
  * @version 1.0
  */
-public class StateMachine
+public class StateMachine<ET extends Entity>
 {
     private static Logger             logger              = LoggerFactory.getLogger(StateMachine.class);
-    private State                     state;
-    private final Entity              entity;
-    private final StateTransitionMap  map;
+    private State<ET>                     state;
+    private final ET              entity;
+    private final StateTransitionMap<ET>  map;
     private int                       transitions         = 0;
     private int                       maxTransitions      = 0;
-    private List<StateChangeListener> listeners           = new ArrayList<StateChangeListener>();
+    private List<StateChangeListener<ET>> listeners           = new ArrayList<StateChangeListener<ET>>();
     private boolean                   forwardChainEnabled = false;
 
     /**
      * Creates a new state machine in the default initialization state.
      */
-    public StateMachine(StateTransitionMap map, Entity entity)
+    public StateMachine(StateTransitionMap<ET> map, ET entity)
     {
         this.map = map;
         this.entity = entity;
@@ -119,7 +122,7 @@ public class StateMachine
     /**
      * Add a state change listener. 
      */
-    public synchronized void addListener(StateChangeListener listener)
+    public synchronized void addListener(StateChangeListener<ET> listener)
     {
         listeners.add(listener);
     }
@@ -145,7 +148,7 @@ public class StateMachine
      *             back cleanly by action code
      * @throws FiniteStateException Thrown if a generic error occurs
      */
-    public synchronized void applyEvent(Event event)
+    public synchronized void applyEvent(Event<?> event)
             throws FiniteStateException
     {
         TransitionFailureException deferredException = null;
@@ -161,13 +164,10 @@ public class StateMachine
         }
 
         // Find the next transition. This is guaranteed to be non-null.
-        Transition transition = map.nextTransition(state, event, entity);
-        State nextState = transition.getOutput();
-        if (logger.isDebugEnabled())
-        {
-            logger.debug("Executing state transition: input state={} transition={} output state={}",
-                    new Object[] {state.getName(), transition.getName(), nextState.getName()});
-        }
+        Transition<ET, ?> transition = map.nextTransition(state, event, entity);
+        State<ET> nextState = transition.getOutput();
+        logger.debug("Executing state transition: input state={} transition={} output state={}",
+                new Object[] {state.getName(), transition.getName(), nextState.getName()});
 
         int actionType = -1;
         try
@@ -175,7 +175,7 @@ public class StateMachine
             // Compute the least common parent between the current and next
             // state. Entry and exit actions fire below this state only in
             // the state hierarchy.
-            State leastCommonParent = state.getLeastCommonParent(nextState);
+            State<ET> leastCommonParent = state.getLeastCommonParent(nextState);
 
             // If we are transitioning to a new state look for exit actions.
             if (state != nextState)
@@ -183,21 +183,18 @@ public class StateMachine
                 // Fire exit actions up to the state below the least common
                 // parent
                 // if it exists.
-                State exitState = state;
-                if (logger.isDebugEnabled())
-                    logger
-                            .debug("Searching for exit actions for current state: {}",
-                                    state.getName());
+                State<ET> exitState = state;
+                logger.debug("Searching for exit actions for current state: {}",
+                                state.getName());
 
                 while (exitState != null && exitState != leastCommonParent)
                 {
                     if (exitState.getExitAction() != null)
                     {
-                        Action exitAction = exitState.getExitAction();
+                        Action<ET> exitAction = exitState.getExitAction();
                         actionType = Action.EXIT_ACTION;
-                        if (logger.isDebugEnabled())
-                            logger.debug("Executing exit action for state: {}",
-                                    exitState.getName());
+                        logger.debug("Executing exit action for state: {}",
+                                exitState.getName());
                         exitAction.doAction(event, entity, transition,
                                 actionType);
                     }
@@ -209,11 +206,10 @@ public class StateMachine
             // Fire transition action if it exists.
             if (transition.getAction() != null)
             {
-                Action transitionAction = transition.getAction();
+                Action<ET> transitionAction = transition.getAction();
                 actionType = Action.TRANSITION_ACTION;
-                if (logger.isDebugEnabled())
-                    logger.debug("Executing action for transition: {}",
-                            transition.getName());
+                logger.debug("Executing action for transition: {}",
+                        transition.getName());
                 transitionAction
                         .doAction(event, entity, transition, actionType);
             }
@@ -221,13 +217,12 @@ public class StateMachine
             // If we are transitioning to a new state look for entry actions.
             if (state != nextState)
             {
-                if (logger.isDebugEnabled())
-                    logger.debug("Searching for entry actions for next state: {}",
-                            nextState.getName());
+                logger.debug("Searching for entry actions for next state: {}",
+                        nextState.getName());
 
                 // Fire entry actions from the state below the least common
                 // parent (if there is one) to the next state itself.
-                State[] entryStates = nextState.getHierarchy();
+                State<ET>[] entryStates = nextState.getHierarchy();
                 int startIndex = -1;
                 if (leastCommonParent == null)
                     startIndex = 0;
@@ -245,14 +240,13 @@ public class StateMachine
 
                 for (int i = startIndex; i < entryStates.length; i++)
                 {
-                    State entryState = entryStates[i];
+                    State<ET> entryState = entryStates[i];
                     if (entryState.getEntryAction() != null)
                     {
-                        Action entryAction = entryState.getEntryAction();
+                        Action<ET> entryAction = entryState.getEntryAction();
                         actionType = Action.ENTER_ACTION;
-                        if (logger.isDebugEnabled())
-                            logger.debug("Executing entry action for state: {}",
-                                    entryState.getName());
+                        logger.debug("Executing entry action for state: {}",
+                                entryState.getName());
                         entryAction.doAction(event, entity, transition,
                                 actionType);
                     }
@@ -262,19 +256,17 @@ public class StateMachine
         catch (TransitionRollbackException e)
         {
             // Log and rethrow a rollback exception.
-            if (logger.isDebugEnabled())
-                logger.debug("Transition rolled back: state={} transition={} actionType={}",
-                    new Object[] {state.getName(), transition.getName(), actionType});
+            logger.debug("Transition rolled back: state={} transition={} actionType={}",
+                new Object[] {state.getName(), transition.getName(), actionType});
             throw e;
         }
         catch (TransitionFailureException e)
         {
             // Transition to the error state and rethrow the exception.
-            if (logger.isDebugEnabled())
-                logger.debug("Transition failed: state={} transition={}  actionType={}",
-                        new Object[] {state.getName(),  transition.getName(), actionType});
+            logger.debug("Transition failed: state={} transition={}  actionType={}",
+                    new Object[] {state.getName(),  transition.getName(), actionType});
 
-            State errorState = map.getErrorState();
+            State<ET> errorState = map.getErrorState();
 
             // Make sure we have an error state!
             if (errorState == null)
@@ -287,16 +279,11 @@ public class StateMachine
             // Now transition to it or try to at least.
             try
             {
-                Action errorStateEntryAction = errorState.getEntryAction();
+                Action<ET> errorStateEntryAction = errorState.getEntryAction();
                 if (errorStateEntryAction != null)
                 {
-                    if (logger.isDebugEnabled())
-                    {
-                        if (logger.isDebugEnabled())
-                            logger
-                                    .debug("Executing entry action for error state: {}",
-                                             errorState.getName());
-                    }
+                    logger.debug("Executing entry action for error state: {}",
+                                     errorState.getName());
                     errorStateEntryAction.doAction(event, entity, transition,
                             Action.ENTER_ACTION);
                 }
@@ -315,13 +302,12 @@ public class StateMachine
         // If we changed state, move to the new state and notify listeners.
         if (state != nextState)
         {
-            if (logger.isDebugEnabled())
-                logger.debug("Entering new state: {}", nextState.getName());
+            logger.debug("Entering new state: {}", nextState.getName());
 
-            State prevState = state;
+            State<ET> prevState = state;
             state = nextState;
 
-            for (StateChangeListener listener : listeners)
+            for (StateChangeListener<ET> listener : listeners)
             {
                 listener.stateChanged(entity, prevState, nextState);
             }
@@ -355,7 +341,7 @@ public class StateMachine
     /**
      * Returns the current state.
      */
-    public State getState()
+    public State<ET> getState()
     {
         return state;
     }
@@ -363,7 +349,7 @@ public class StateMachine
     /**
      * Returns the entity that this state machine manages.
      */
-    public Entity getEntity()
+    public ET getEntity()
     {
         return entity;
     }
@@ -395,7 +381,7 @@ public class StateMachine
     /**
      * Returns the error state of this state machine, if defined, or null.
      */
-    public State getErrorState()
+    public State<ET> getErrorState()
     {
         return this.map.getErrorState();
     }
@@ -403,9 +389,9 @@ public class StateMachine
     /**
      * Creates a latch on a state in the state machine.
      */
-    public StateTransitionLatch createStateTransitionLatch(State expected,
+    public StateTransitionLatch<ET> createStateTransitionLatch(State<ET> expected,
             boolean exitOnError)
     {
-        return new StateTransitionLatch(this, expected, exitOnError);
+        return new StateTransitionLatch<ET>(this, expected, exitOnError);
     }
 }
