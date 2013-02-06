@@ -31,31 +31,32 @@ import java.util.Vector;
  * @author <a href="mailto:robert.hodges@continuent.com">Robert Hodges</a>
  * @version 1.0
  */
-public class TransitionMatcher
+public class TransitionMatcher<ET extends Entity>
 {
-    Vector<Transition> transitions = new Vector<Transition>();
+    Vector<Transition<ET, ?>> transitions = new Vector<Transition<ET, ?>>();
 
     public TransitionMatcher()
     {
     }
 
-    public void addTransition(Transition transition)
+    public void addTransition(Transition<ET, ?> transition)
     {
         transitions.add(transition);
     }
 
-    public List<Transition> getTransitions()
+    public List<Transition<ET, ?>> getTransitions()
     {
         return transitions;
     }
 
-    public Transition matchTransition(Event event, Entity entity)
+    public <T> Transition<ET, T> matchTransition(Event<T> event, ET entity)
     {
-        for (Transition transition : transitions)
+        for (Transition<ET, ?> transition : transitions)
         {
-            if (transition.accept(event, entity))
+            @SuppressWarnings("unchecked") Transition<ET, T> unsafeCast = (Transition<ET, T>) transition;
+            if (unsafeCast.accept(event, entity))
             {
-                return transition;
+                return unsafeCast;
             }
         }
         return null;

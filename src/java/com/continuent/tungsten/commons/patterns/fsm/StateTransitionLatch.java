@@ -46,21 +46,21 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @author <a href="mailto:robert.hodges@continuent.com">Robert Hodges</a>
  * @version 1.0
  */
-public class StateTransitionLatch
+public class StateTransitionLatch<ET extends Entity>
         implements
             Callable<State>,
-            StateChangeListener
+            StateChangeListener<ET>
 {
-    private final StateMachine   stateMachine;
-    private final State          expected;
+    private final StateMachine<ET>   stateMachine;
+    private final State<ET>          expected;
     private final boolean        endOnError;
 
-    private State                errorState;
-    private State                current;
+    private State<ET>                errorState;
+    private State<ET>                current;
     private boolean              done;
     private boolean              reachedExpected;
     private boolean              reachedError;
-    private BlockingQueue<State> stateQueue = new LinkedBlockingQueue<State>();
+    private BlockingQueue<State<ET>> stateQueue = new LinkedBlockingQueue<State<ET>>();
 
     /**
      * Defines a new latch that waits for the the state machine to reach a
@@ -70,7 +70,7 @@ public class StateTransitionLatch
      * @param expected State we are awaiting
      * @param endOnError If true, end if we reach the error state
      */
-    public StateTransitionLatch(StateMachine sm, State expected,
+    public StateTransitionLatch(StateMachine<ET> sm, State<ET> expected,
             boolean endOnError)
     {
         this.stateMachine = sm;
@@ -107,7 +107,7 @@ public class StateTransitionLatch
      * Returns the current state. Synchronization ensures that this value is
      * correctly visible across threads.
      */
-    protected synchronized State getCurrent()
+    protected synchronized State<ET> getCurrent()
     {
         return current;
     }
@@ -116,7 +116,7 @@ public class StateTransitionLatch
      * Sets the current state with synchronization to ensure visibility across
      * threads.
      */
-    protected synchronized void setCurrent(State state)
+    protected synchronized void setCurrent(State<ET> state)
     {
         this.current = state;
     }
@@ -124,8 +124,9 @@ public class StateTransitionLatch
     /**
      * Enqueues a new state for examination by the latch.
      */
-    public synchronized void stateChanged(Entity entity, State oldState,
-            State newState)
+    @Override
+    public synchronized void stateChanged(ET entity, State<ET> oldState,
+            State<ET> newState)
     {
         stateQueue.add(newState);
     }
@@ -144,7 +145,7 @@ public class StateTransitionLatch
      * 
      * @return Current state if successful or null
      */
-    public State call()
+    public State<ET> call()
     {
         try
         {
